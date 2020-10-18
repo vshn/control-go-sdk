@@ -1,6 +1,8 @@
 package control
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -120,4 +122,39 @@ func checkResponse(res *http.Response) error {
 	}
 
 	return fmt.Errorf("HTTP error: %d", code)
+}
+
+// GetStringList does a HTTP GET request to the API with the given path, and
+// returns the response as a slice of strings.
+func (c *Client) GetStringList(path string) ([]string, *http.Response, error) {
+	res, err := c.Do(http.MethodGet, path, nil)
+	if err != nil {
+		return nil, res, err
+	}
+
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, res, err
+	}
+
+	body = bytes.TrimSpace(body)
+	lines := strings.Split(string(body), "\n")
+
+	return lines, res, nil
+}
+
+// GetJSON sends a HTTP GET request to the API and decodes the (JSON) response
+// body into the passed struct.
+func (c *Client) GetJSON(path string, v interface{}) (*http.Response, error) {
+	res, err := c.Do(http.MethodGet, path, nil)
+	if err != nil {
+		return res, err
+	}
+
+	defer res.Body.Close()
+	if err := json.NewDecoder(res.Body).Decode(&v); err != nil {
+		return res, err
+	}
+	return res, nil
 }
