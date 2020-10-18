@@ -1,11 +1,8 @@
 package control
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"strings"
 )
 
 const (
@@ -32,19 +29,7 @@ var _ ServersService = &Servers{}
 // ListCustomerIDs returns a list of customer ID the provided token has access
 // to.
 func (s *Servers) ListCustomerIDs() ([]string, *http.Response, error) {
-	res, err := s.client.Do(http.MethodGet, serversBasePath+"/", nil)
-	if err != nil {
-		return nil, res, err
-	}
-
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, res, err
-	}
-
-	ids := strings.Split(strings.TrimSpace(string(body)), "\n")
-	return ids, res, nil
+	return s.client.GetStringList(serversBasePath + "/")
 }
 
 // ListFQDNs returns a list of FQDNs the provided token has access to.
@@ -55,31 +40,15 @@ func (s *Servers) ListFQDNs(customerID string) ([]string, *http.Response, error)
 		customerID = "_"
 	}
 
-	res, err := s.client.Do(http.MethodGet, fmt.Sprintf("%s/%s/", serversBasePath, customerID), nil)
-	if err != nil {
-		return nil, res, err
-	}
-
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, res, err
-	}
-
-	ids := strings.Split(strings.TrimSpace(string(body)), "\n")
-	return ids, res, nil
+	path := fmt.Sprintf("%s/%s/", serversBasePath, customerID)
+	return s.client.GetStringList(path)
 }
 
 // GetDefinition returns a server definition.
 func (s *Servers) GetDefinition(fqdn string) (*Server, *http.Response, error) {
-	res, err := s.client.Do(http.MethodGet, fmt.Sprintf("%s/_/%s", serversBasePath, fqdn), nil)
-	if err != nil {
-		return nil, res, err
-	}
-
-	defer res.Body.Close()
 	var srv Server
-	if err := json.NewDecoder(res.Body).Decode(&srv); err != nil {
+	res, err := s.client.GetJSON(fmt.Sprintf("%s/_/%s", serversBasePath, fqdn), &srv)
+	if err != nil {
 		return nil, res, err
 	}
 	return &srv, res, nil
@@ -87,14 +56,9 @@ func (s *Servers) GetDefinition(fqdn string) (*Server, *http.Response, error) {
 
 // GetFacts returns a server definition.
 func (s *Servers) GetFacts(fqdn string) (map[string]string, *http.Response, error) {
-	res, err := s.client.Do(http.MethodGet, fmt.Sprintf("%s/_/%s/facts", serversBasePath, fqdn), nil)
-	if err != nil {
-		return nil, res, err
-	}
-
-	defer res.Body.Close()
 	var facts map[string]string
-	if err := json.NewDecoder(res.Body).Decode(&facts); err != nil {
+	res, err := s.client.GetJSON(fmt.Sprintf("%s/_/%s/facts", serversBasePath, fqdn), &facts)
+	if err != nil {
 		return nil, res, err
 	}
 	return facts, res, nil
