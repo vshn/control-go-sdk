@@ -35,46 +35,31 @@ func TestServersListCustomerIDs(t *testing.T) {
 func TestServersListFQDNs(t *testing.T) {
 	is := is.New(t)
 	c := control.NewClientFromToken(testToken)
-	numRequests := 0
+	srv := newMockAPI(t, "/api/servers/1/qq1soft/")
+	srv.ResponseBody = "\ndb0.qq1soft.com\ndb1.qq1soft.com\njira.dev.qq1soft.com\n\n"
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		numRequests++
-		is.Equal(r.Header.Get("X-AccessToken"), testToken) // token is set
-		is.Equal(r.RequestURI, "/api/servers/1/qq1soft/")  // correct request URL
-
-		fmt.Fprint(w, "\ndb0.qq1soft.com\ndb1.qq1soft.com\njira.dev.qq1soft.com\n\n")
-	}))
 	is.NoErr(c.SetBaseURL(srv.URL))
 
 	customers, res, err := c.Servers.ListFQDNs("qq1soft")
 	is.NoErr(err)       // no error
 	is.True(res != nil) // response is set
 	is.Equal(customers, []string{"db0.qq1soft.com", "db1.qq1soft.com", "jira.dev.qq1soft.com"})
-	is.Equal(numRequests, 1) // got one request
+	is.Equal(srv.NumRequests, 1) // got one request
 
 	// Empty customer
-	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		numRequests++
-		is.Equal(r.RequestURI, "/api/servers/1/_/") // correct request URL
-	})
+	srv.ExpectedRequestURI = "/api/servers/1/_/"
 	_, _, err = c.Servers.ListFQDNs("")
-	is.NoErr(err)            // no error
-	is.Equal(numRequests, 2) // got one request
+	is.NoErr(err)                // no error
+	is.Equal(srv.NumRequests, 2) // got another request
 
 }
 
 func TestServerGetDefinition(t *testing.T) {
 	is := is.New(t)
 	c := control.NewClientFromToken(testToken)
-	numRequests := 0
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		numRequests++
-		is.Equal(r.Header.Get("X-AccessToken"), testToken)              // token is set
-		is.Equal(r.RequestURI, "/api/servers/1/_/jira.dev.qq1soft.com") // correct request URL
-		w.Header().Set("Content-Type", "application/json")
-
-		fmt.Fprint(w, `{
+	srv := newMockAPI(t, "/api/servers/1/_/jira.dev.qq1soft.com")
+	srv.ResponseContentType = "application/json"
+	srv.ResponseBody = `{
   "fqdn" : "jira.dev.qq1soft.com",
   "customer" : "qq1soft",
   "environment" : "QQ1Prod",
@@ -84,8 +69,8 @@ func TestServerGetDefinition(t *testing.T) {
   "stage" : "prod",
   "modDate" : 1477493084029,
   "modUser" : "qq-jdoe1"
-}`)
-	}))
+}`
+
 	is.NoErr(c.SetBaseURL(srv.URL))
 
 	s, res, err := c.Servers.GetDefinition("jira.dev.qq1soft.com")
@@ -102,24 +87,18 @@ func TestServerGetDefinition(t *testing.T) {
 		ModDate:     1477493084029,
 		ModUser:     "qq-jdoe1",
 	})
-	is.Equal(numRequests, 1) // got one request
+	is.Equal(srv.NumRequests, 1) // got one request
 }
 func TestServerGetFacts(t *testing.T) {
 	is := is.New(t)
 	c := control.NewClientFromToken(testToken)
-	numRequests := 0
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		numRequests++
-		is.Equal(r.Header.Get("X-AccessToken"), testToken)                    // token is set
-		is.Equal(r.RequestURI, "/api/servers/1/_/db1.prod.qq1soft.com/facts") // correct request URL
-		w.Header().Set("Content-Type", "application/json")
-
-		fmt.Fprint(w, `{
+	srv := newMockAPI(t, "/api/servers/1/_/db1.prod.qq1soft.com/facts")
+	srv.ResponseContentType = "application/json"
+	srv.ResponseBody = `{
   "lsbdistrocodename" : "xenial",
   "processorcount" : "2"
-}`)
-	}))
+}`
+
 	is.NoErr(c.SetBaseURL(srv.URL))
 
 	s, res, err := c.Servers.GetFacts("db1.prod.qq1soft.com")
@@ -129,5 +108,5 @@ func TestServerGetFacts(t *testing.T) {
 		"lsbdistrocodename": "xenial",
 		"processorcount":    "2",
 	})
-	is.Equal(numRequests, 1) // got one request
+	is.Equal(srv.NumRequests, 1) // got one request
 }
